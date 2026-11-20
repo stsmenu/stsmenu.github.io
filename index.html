@@ -513,6 +513,8 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeViewer(); });
     document.addEventListener('visibilitychange', maybeRefresh);
 
+    // Restaurant / Room QR: lock to that menu (no switch). Main QR keeps both options.
+    if (window.__INITIAL_MENU__) document.querySelector('.switch').hidden = true;
     var initial = window.__INITIAL_MENU__ || store(STORE_KEY);
     if (initial === 'room' || initial === 'restaurant') {
       choose(initial);
