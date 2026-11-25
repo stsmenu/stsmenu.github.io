@@ -159,6 +159,22 @@
     .thumb { width: 104px; height: 104px; }
   }
   @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: auto; } }
+  /* ---- v1.2: Discount + Print ---- */
+  .price-old { color: #A8998A; font-weight: 400; font-size: .85em; margin-right: 3px; }
+  .offer-banner { margin: 14px 16px 0; padding: 11px 14px; background: #3D1C02; color: #D4A96A; text-align: center; font-weight: 700; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; border-top: 2px solid #C49A45; border-bottom: 2px solid #C49A45; }
+  .print-wrap { text-align: center; margin: 26px 0 6px; }
+  .print-btn { padding: 9px 20px; border: 1px solid #C49A45; border-radius: 999px; background: transparent; color: #6B3A1F; font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; cursor: pointer; }
+  @media print {
+    @page { margin: 12mm; }
+    html, body { background: #fff !important; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .search, .cats, #chooser, .viewer, .print-wrap, #errorBox, #loadingBox, .thumb { display: none !important; }
+    .masthead, .switch, .cats { position: static !important; box-shadow: none !important; }
+    .switch { border: 0 !important; background: none !important; justify-content: center; }
+    .switch button { display: none !important; }
+    .switch button[aria-selected="true"] { display: block !important; flex: none; background: none !important; color: #3D1C02 !important; font-size: 15px; }
+    .item { break-inside: avoid; page-break-inside: avoid; }
+  }
 </style>
 
 </head>
@@ -192,6 +208,8 @@
       <button type="button" role="tab" data-menu="room" id="tabRoom">In-Room Dining</button>
     </div>
 
+    <div id="offerBanner" class="offer-banner" hidden></div>
+
     <div class="search">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
       <input id="q" type="search" placeholder="Search dishes" autocomplete="off" aria-label="Search dishes">
@@ -201,6 +219,7 @@
 
     <main id="sections"></main>
     <div id="empty" class="empty" hidden></div>
+    <div class="print-wrap"><button type="button" id="printBtn" class="print-btn">🖨 Print menu</button></div>
   </div>
 
   <div id="errorBox" class="empty" hidden></div>
@@ -255,6 +274,20 @@
   }
 
   function priceOf(it) { return state.menu === 'room' ? it.rp : it.p; }
+  /* Discount (v1.2): % Admin Settings se, final price nearest rupee */
+  function discPct() {
+    var s = DATA.settings || {};
+    var v = Number(state.menu === 'room' ? s.Room_Discount_Pct : s.Restaurant_Discount_Pct) || 0;
+    return (v > 0 && v < 100) ? v : 0;
+  }
+  function finalPrice(p) { var d = discPct(); return d ? Math.round(p * (100 - d) / 100) : p; }
+  /* Print (v1.2): search clear karke poora menu print */
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('#printBtn') : null;
+    if (!t) return;
+    if (state.query) { state.query = ''; var qi = $('q'); if (qi) qi.value = ''; renderMenu(); }
+    setTimeout(function () { window.print(); }, 60);
+  });
 
   /* ---------- Branding ---------- */
   function renderBrand() {
@@ -298,6 +331,12 @@
     var nav = $('catNav'), sections = $('sections');
     nav.textContent = '';
     sections.textContent = '';
+    var ob = $('offerBanner');
+    if (ob) {
+      var dp = discPct();
+      ob.hidden = !dp;
+      if (dp) ob.textContent = dp + '% OFF  \u00b7  ' + ((DATA.settings || {}).Discount_Label || 'Special Offer');
+    }
 
     ['tabRestaurant', 'tabRoom'].forEach(function (id) {
       var b = $(id);
@@ -347,7 +386,15 @@
     var main = el('div', 'item-main');
     var head = el('div', 'item-head');
     head.appendChild(el('h3', 'item-name', it.n));
-    head.appendChild(el('span', 'price', money(priceOf(it))));
+    var bp = priceOf(it), fp = finalPrice(bp);
+    if (fp !== bp) {
+      var pw = el('span', 'price');
+      pw.appendChild(el('s', 'price-old', money(bp)));
+      pw.appendChild(document.createTextNode(' ' + money(fp)));
+      head.appendChild(pw);
+    } else {
+      head.appendChild(el('span', 'price', money(bp)));
+    }
     main.appendChild(head);
     if (it.k) main.appendChild(el('p', 'kcal', it.k));
     if (it.d) main.appendChild(el('p', 'item-desc', it.d));
